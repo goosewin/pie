@@ -1,0 +1,54 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Weekly Time Allocation Pie-Chart - Cursor Rules (.mdc)
+
+## 0. Meta
+
+* **Purpose** - Machine-readable technical spec for Cursor agent; complements the high-level PRD.
+* **Stack (hard requirement)**: Next.js **15.3**, TailwindCSS **4.x**, TypeScript, Drizzle ORM + Neon Postgres, Upstash (rate-limit/KV or redis), Vercel (hosting + analytics + OG), shadcn/ui, lucide-react icons, BetterAuth with X / GitHub / Google providers.
+* **Deployment target** - Vercel.
+
+## 1. Non-negotiable Acceptance Criteria
+
+| ID    | Description                                                                             |
+| ----- | --------------------------------------------------------------------------------------- |
+| AC-1  | `bun i && bun dev` starts locally with zero build errors.                               |
+| AC-2  | Lighthouse mobile **Performance** ≥ 90 & **A11y** ≥ 90 on `/` and `/share/[id]`.        |
+| AC-3  | Hours ⇄ Percentage toggle auto-converts values; validation & progress bar correct.      |
+| AC-4  | Drag-and-drop re-ordering works on desktop **and** mobile long-press.                   |
+| AC-5  | Colour picker immediately updates slice colour in chart & legend.                       |
+| AC-6  | Progress bar states: **amber < quota**, **green = quota**, **red > quota**.             |
+| AC-7  | **Generate Link** navigates to `/share/[id]` showing identical chart + facts + CTA.     |
+| AC-8  | Pasting share-URL on X renders correct OG image and meta tags.                          |
+| AC-9  | Upstash rate-limiter: ≤ 10 POST `/api/charts` per IP per hour, else 429 JSON `{error}`. |
+| AC-10 | All DB I/O via Drizzle; no raw SQL outside migration files.                             |
+| AC-11 | Secrets loaded from Vercel env vars; **never** committed to repo.                       |
+
+## 2. Architectural Rules
+
+* Use `shadcn/ui` primitives; extend cautiously.
+* Integrate `@vercel/analytics` in the root `layout.tsx`.
+* OG image generated with **Vercel OG** (React/Satori).
+* Auth gated writes: signed-in users persist chart in DB; guests fall back to encoded-URL.
+
+## 3. Coding Standards
+
+* Prettier + ESLint (`next/core-web-vitals`, `tailwindcss`) must pass on CI.
+* Use strict TypeScript (`"strict": true`).
+* No `any` - use `unknown` + type-guards where needed.
+* Commit messages follow **Conventional Commits**.
+* Prefer `const`/immutability; descriptive names.
+
+## 4. Test Plan (Happy Path)
+
+1. Start dev server.
+2. Input categories until exactly **168 h**; progress bar turns green.
+3. Toggle to %; numbers convert and bar shows **100 %**.
+4. Re-order categories; chart order reflects change instantly.
+5. Change slice colour; legend & chart update.
+6. Click **Generate Link**; copy URL, open in incognito → identical chart + facts.
+7. Paste URL into X DM → OG card with rendered chart appears.
+8. Fire 11 POST `/api/charts` from same IP → 11th returns 429.

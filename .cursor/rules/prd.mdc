@@ -1,0 +1,202 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 1. Product Overview
+
+**Name**: Weekly Time Allocation Pie-Chart (working title)
+
+**Vision**: Help people visualise how they spend their week, nudge them toward healthier balance, and spark a viral sharing loop on X.
+
+This web app lets anyone input their weekly activities in *hours* **or** *percentages*, instantly renders a polished pie-chart, surfaces data-driven insights ("interesting facts"), and produces a unique shareable link (incl. rich OG image) + pre-populated tweet.  Drag-and-drop re-ordering, colour customisation, and a gamified progress bar make the experience fun and snack-able.
+
+---
+
+# 2. Goals & Success Metrics
+
+| Goal                   |  Metric                                               |  Target   | Notes                                  |
+| ---------------------- | ----------------------------------------------------- | --------- | -------------------------------------- |
+| Virality on X          |  Share-to-create ratio                                |  > 1.2    | More than 1 new chart per shared chart |
+| Healthy-balance nudges |  % of users who adjust allocation after reading facts |  > 30 %   | Track edit events after facts shown    |
+| Time-to-first-share    |  Median seconds from landing → share                  |  < 90 s   | Friction-less UX                       |
+
+---
+
+# 3. Personas
+
+* **Casual Tweeter** - sees Dan's tweet, wants to hop on the trend in <2 min; mobile-first.
+* **Quantified-Self Enthusiast** - cares about exact numbers; may share screenshot to blog.
+* **Wellness Coach** - uses the chart as conversation starter with clients.
+
+---
+
+# 4. Core User Stories
+
+1. *Create*: “As a user I can add, rename, delete or reorder activities and specify their value in **hours** or **percent** so that the total equals one week.”
+2. *Visualise*: “As I type, the pie-chart updates in real-time and always shows complete pie (no donut).”
+3. *Validate*: “If my total is off, I see clear feedback & a progress bar telling me how close I am.”
+4. *Customise*: “I can pick distinct colours per slice.”
+5. *Convert*: “Switching between hours/percent automatically converts my inputs without data loss.”
+6. *Share*: “With one click I get a unique link + pre-filled tweet text + OG image preview.”
+7. *Consume*: “Anyone visiting my link sees the chart, legend, facts, and 'Create your own' CTA.”
+8. *Accessibility*: “The app is keyboard-navigable and screen-reader friendly.”
+
+---
+
+# 5. Functional Requirements
+
+## 5.1 Input Form
+
+* Two modes: **Hours/week** (max = 168) & **Percentage** (max = 100).
+* Inline validation; decimals allowed ( ≤ 1 decimal).
+* Drag-and-drop list with grab-handle; order reflected in chart draw order.
+* Colour picker per row (fall-back text input for hex).
+* Buttons: **Add**, **Remove**, **Generate Link**.
+* Progress bar under form, colour-coded (green = ok, red = over, grey = under).
+
+## 5.2 Chart
+
+* Uses Recharts `<Pie>` with `innerRadius = 0`.
+* Labels outside slice with leader-lines; hide slices < 3 %.
+* Hover highlights slice; tooltip shows absolute & %.
+* Legend below chart (2-3 col grid responsive).
+
+## 5.3 Interesting Facts Engine
+
+* Compute hours, % for each category.
+* Default facts implemented (largest / smallest slice, sleep, work, productive total).
+* Config-driven rules so new facts can be added without code change.
+
+## 5.4 Sharing
+
+* **Encode v1**: JSON → base64url compressed string in `/share/[id]` route.
+* **v2 (stretch)**: Persist in Neon `charts` (id, userAgentHash, json, createdAt); returns numeric id.
+* Open Graph image generation (Vercel OG) so X preview shows the chart.
+* Pre-populated tweet text: `"Here's how I spend my week ⬇️  Make yours ➡️ {appURL}"`.
+* Copy-link fallback for mobile share-sheet issues.
+
+## 5.5 Theming & Branding
+
+* Dark mode default, light mode toggle.
+* Aesthetic inspired by the tweet (rounded corners, subtle noise bg).
+* Allow primary accent colour switch (future: user-selectable themes).
+
+## 5.6 Analytics & Instrumentation
+
+* Capture events: `page_view`, `add_category`, `value_change`, `mode_switch`, `share_click`, `chart_render_error`.
+* Use Vercel x Next.js built-in analytics.
+
+## 5.7 Internationalisation (nice-to-have)
+
+* English default; i18n framework ready.
+
+---
+
+# 6. Non-Functional Requirements
+
+| Area            | Requirement                                                |
+| --------------- | ---------------------------------------------------------- |
+| Performance     |  Largest Contentful Paint < 2 s on 3G mobile               |
+| Security        | No PII stored; URL length < 4 k; rate limit DB writes      |
+| Accessibility   |  WCAG 2.1 AA; focus ring; colour-blind palette suggestions |
+| Browser Support |  Latest 2 versions of major browsers + iOS/Android webview |
+| SEO             | OG tags, meta description, canonical link                  |
+
+---
+
+# 7. Technical Architecture
+
+| Layer       | Choice                                                                | Rationale                            |
+| ----------- | --------------------------------------------------------------------- | ------------------------------------ |
+| Front-end   | Next.js 15 (app router, React 19) + TypeScript + Tailwind + Shadcn/ui | Already in codebase; fast DX         |
+| Charting    | Recharts + Shadcn/ui charts                                                              | Already used; good pie-label control |
+| State       | React hooks (no Redux)                                                |                                      |
+| Persistence | V1: none → encode; V2: Neon (Postgres + Row-level Security)       |                                      |
+| Hosting     | Vercel                                                                |                                      |
+| OG Image    | Vercel OG API (Satori/React)                                          |                                      |
+| Analytics   | Vercel Web Analytics or Posthog Cloud                                 |                                      |
+
+---
+
+# 8. Data Model
+
+Use your best judgement to define data models and follow best practices of Neon, Postgres, Drizzle ORM.
+
+---
+
+# 9. API Endpoints (if using DB)
+
+| Method | Path               | Auth | Purpose                              |
+| ------ | ------------------ | ---- | ------------------------------------ |
+| POST   | `/api/charts`      | none | Stores new chart; returns numeric id |
+| GET    | `/api/charts/{id}` | none | Returns json\_data                   |
+
+All endpoints respond with `application/json`.
+
+---
+
+# 10. UI/UX Guidelines
+
+* Mobile-first layout: form collapses under chart on ≥ md.
+* Tap-targets ≥ 44 px.
+* Sticky CTA **Generate Link** on small screens.
+* Use `react-beautiful-dnd` or built-in HTML5 DnD with clear visual placeholder.
+* Use `react-colorful` for colour picker (small bundle).
+* Progress bar animates width for delight.
+
+---
+
+# 11. Future & Stretch Ideas
+
+1. **Leaderboard / Gallery** - opt-in public feed of most creative charts.
+2. **Compare mode** - overlay two weeks.
+3. **Export PNG/SVG** - high-res download for blogs.
+4. **AI coach** - GPT suggests optimised schedule based on goals.
+5. **Embeddable widget** - iframe / script tag for personal websites.
+
+---
+
+# 12. Milestones & Timeline
+
+| Phase                          |  Deliverables                                    | Due   |
+| ------------------------------ | ------------------------------------------------ | ----- |
+| 0 - Setup                      | Repo, lint, CI, Tailwind, shadcn/ui skeleton     | Day 1 |
+| 1 - MVP                        | Form, chart, validation, progress bar, share URL | Day 3 |
+| 2 - Polishing                  | Labels, tooltips, colour picker, DnD fixes       | Day 5 |
+| 3 - OG image + Tweet button    | Dynamic OG, X intent link                        | Day 6 |
+| 4 - Analytics & Error boundary | Posthog, Sentry                                  | Day 7 |
+| 5 - (opt) DB persistence       | Neon integration, API tests                  | Day 9 |
+
+---
+
+# 13. Out-of-Scope for v1
+
+* User accounts / auth.
+* Editing a chart after share (would require DB).
+* Native mobile app.
+* Calendar sync / scheduling suggestions.
+
+---
+
+# 14. Open Questions
+
+1. Should default categories mirror Dan's tweet or be blank?
+2. Include hashtags in pre-populated tweet? (Conflict with user preference.)
+3. Do we want light theme OG images as well?
+4. Rate limit unauthenticated POSTs - acceptable threshold?
+5. Any legal copy needed re: health advice?
+
+---
+
+# 15. Acceptance Criteria (MVP)
+
+1. Landing page loads with default categories; progress bar reflects 56/168.
+2. Switching to % converts values and progress updates to 33.3 % … etc.
+3. DnD reorder works on desktop and mobile long-press.
+4. 'Generate Link' opens `/share/[id]` with identical chart + facts.
+5. 'Share on X' opens tweet-intent with populated URL.
+6. OG card shows rendered chart when link pasted into X DM.
+7. Lighthouse performance ≥ 90 on mobile.
+
+---
